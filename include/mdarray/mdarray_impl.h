@@ -4,6 +4,10 @@
 #include <initializer_list>
 #include <utility>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "exp/exp.h"
 #include "exp/exp_impl.h"
 #include "exp/operator/basic_op.h"
@@ -419,9 +423,15 @@ struct AutoGradMeta {
 template <typename ImplType>
 void Assign(Storage &dist_storage, const Shape &dist_shape,
             const IndexArray &dist_stride, const ImplType &src_exp) {
-  for (Index i = 0; i < dist_shape.SpaceSize(); ++i) {
-    IndexArray indexes(dist_shape.DimensionsSize());
-    for (Index ii = i, j = 0; j < dist_shape.DimensionsSize(); ++j) {
+  const Index space_size = dist_shape.SpaceSize();
+  const Index dim_size = dist_shape.DimensionsSize();
+  
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static) if(space_size > 1000)
+#endif
+  for (Index i = 0; i < space_size; ++i) {
+    IndexArray indexes(dim_size);
+    for (Index ii = i, j = 0; j < dim_size; ++j) {
       if (dist_stride[j] != 0) {
         indexes[j] = ii / dist_stride[j];
         ii %= dist_stride[j];
@@ -436,9 +446,15 @@ void Assign(Storage &dist_storage, const Shape &dist_shape,
 template <typename ImplType>
 void InplacementAdd(Storage &dist_storage, const Shape &dist_shape,
                     const IndexArray &dist_stride, const ImplType &src_exp) {
-  for (Index i = 0; i < dist_shape.SpaceSize(); ++i) {
-    IndexArray indexes(dist_shape.DimensionsSize());
-    for (Index ii = i, j = 0; j < dist_shape.DimensionsSize(); ++j) {
+  const Index space_size = dist_shape.SpaceSize();
+  const Index dim_size = dist_shape.DimensionsSize();
+  
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static) if(space_size > 1000)
+#endif
+  for (Index i = 0; i < space_size; ++i) {
+    IndexArray indexes(dim_size);
+    for (Index ii = i, j = 0; j < dim_size; ++j) {
       if (dist_stride[j] != 0) {
         indexes[j] = ii / dist_stride[j];
         ii %= dist_stride[j];
@@ -454,12 +470,16 @@ template <typename ImplType>
 void AssignUncontiguous(Storage &dist_storage, const Shape &dist_shape,
                         const IndexArray &dist_stride,
                         const ImplType &src_exp) {
-  Index space_size = dist_shape.SpaceSize();
+  const Index space_size = dist_shape.SpaceSize();
+  const Index dim_size = dist_shape.DimensionsSize();
+  
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static) if(space_size > 1000)
+#endif
   for (Index i = 0; i < space_size; i++) {
-    IndexArray indexes(dist_shape.DimensionsSize());
+    IndexArray indexes(dim_size);
     Index index = i;
-    for (int j = static_cast<int>(dist_shape.DimensionsSize()) - 1; j >= 0;
-         --j) {
+    for (int j = static_cast<int>(dim_size) - 1; j >= 0; --j) {
       indexes[j] = index % dist_shape[j];
       index = index / dist_shape[j];
     }
@@ -475,11 +495,16 @@ template <typename ImplType>
 void InplacementAddUncontiguous(Storage &dist_storage, const Shape &dist_shape,
                                 const IndexArray &dist_stride,
                                 const ImplType &src_exp) {
-  Index space_size = dist_shape.SpaceSize();
-  IndexArray indexes(dist_shape.DimensionsSize());
+  const Index space_size = dist_shape.SpaceSize();
+  const Index dim_size = dist_shape.DimensionsSize();
+  
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static) if(space_size > 1000)
+#endif
   for (Index i = 0; i < space_size; i++) {
-    int index = i;
-    for (int j = dist_shape.DimensionsSize() - 1; j >= 0; --j) {
+    IndexArray indexes(dim_size);
+    Index index = i;
+    for (int j = static_cast<int>(dim_size) - 1; j >= 0; --j) {
       indexes[j] = index % dist_shape[j];
       index = index / dist_shape[j];
     }

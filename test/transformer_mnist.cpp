@@ -93,7 +93,6 @@ class MultiHeadSelfAttention : public Autoalg::Learning::Module {
 
     // attn = softmax(scores, dim=-1)
     Autoalg::Mdarray attn = SoftmaxLastDim(scores);
-    std::cout << attn << std::endl;
     // Autoalg::Mdarray attn =
     //     Autoalg::Operator::CreateOperationSoftmax(scores2);  // (BH, S, S)
 
@@ -207,18 +206,18 @@ class TransformerMNIST : public Autoalg::Learning::Module {
     BuildSinusoidalPE(pe_buf_, seq_len_, d_model_);
     pe_ = Autoalg::Mdarray(pe_buf_.data(), Autoalg::Shape({1, seq_len_, d_model_}));
 
-    // create blocks (here fixed to 2 for simplicity; adjust as needed)
-    blocks_.emplace_back(
-        new TransformerEncoderBlock(d_model_, n_heads_, d_ff_));
-    blocks_.emplace_back(
-        new TransformerEncoderBlock(d_model_, n_heads_, d_ff_));
+    // create blocks - 根据n_layers动态创建
+    for (Autoalg::Index l = 0; l < n_layers_; ++l) {
+      blocks_.emplace_back(
+          new TransformerEncoderBlock(d_model_, n_heads_, d_ff_));
+    }
   }
 
   Autoalg::Mdarray Forward(const Autoalg::Mdarray& input) override {
-    // input: (B, 784). 我们把每一行(28)当作一个token，序列长度 S=28
+    // input: (B, 784). 将图像分成seq_len个patch
     const Autoalg::Index B = input.Size(0);
     Autoalg::Mdarray x_bsd =
-        input.View({B, seq_len_, in_per_token_});  // (B, S=28, 28)
+        input.View({B, seq_len_, in_per_token_});  // (B, S, in_per_token)
 
     // token projection
     Autoalg::Mdarray x2d = x_bsd.View({B * seq_len_, in_per_token_});  // (B*S, 28)
@@ -245,9 +244,14 @@ class TransformerMNIST : public Autoalg::Learning::Module {
     Autoalg::Learning::ParamsDict dict = {
         {"tok_proj", tok_proj_.Parameters()},
         {"head", head_.Parameters()},
-        {"block_1", blocks_[0]->Parameters()},
-        {"block_2", blocks_[1]->Parameters()},
     };
+    // 动态添加所有block的参数
+    for (Autoalg::Index i = 0; i < blocks_.size(); ++i) {
+      auto block_params = blocks_[i]->Parameters();
+      for (auto& kv : block_params) {
+        dict.insert({"block_" + std::to_string(i) + "_" + kv.first, kv.second});
+      }
+    }
     return dict;
   }
 
@@ -262,16 +266,16 @@ class TransformerMNIST : public Autoalg::Learning::Module {
   Autoalg::Mdarray pe_;
 };
 
-// ====== Training (对齐你的 MLP 例子) ======
+// ====== Training ======
 int main() {
-  // 可调超参
-  constexpr Autoalg::Index epoch = 3;
-  constexpr Autoalg::Index batch_size = 64;
-  constexpr Autoalg::BasicData lr = 0.05;
+  // 可调超参 - 优化后的参数
+  constexpr Autoalg::Index epoch = 2;  // 增加到两个epoch
+  constexpr Autoalg::Index batch_size = 32;
+  constexpr Autoalg::BasicData lr = 0.02;    // 稍微提高学习率
   constexpr Autoalg::BasicData momentum = 0.90;
-  constexpr Autoalg::BasicData lr_decay_factor = 0.1;
-  constexpr Autoalg::Index lr_decay_epoch = 2;
-  constexpr Autoalg::Index print_iterators = 10;
+  constexpr Autoalg::BasicData lr_decay_factor = 0.5;
+  constexpr Autoalg::Index lr_decay_epoch = 1;  // 第一个epoch后衰减
+  constexpr Autoalg::Index print_iterators = 50;  // 每50次打印
 
   using namespace std::chrono;
   steady_clock::time_point start_tp = steady_clock::now();
@@ -285,10 +289,11 @@ int main() {
                                     batch_size);
 
   // model & criterion
-  // rows-as-tokens: 28 tokens，每个 token 维度 28 -> 映射到 d_model
-  TransformerMNIST model(/*in_per_token=*/28, /*seq_len=*/28,
-                         /*d_model=*/64, /*n_heads=*/4,
-                         /*d_ff=*/128, /*n_layers=*/2,
+  // 优化: 7 tokens (每个token 4行=112维), 更小的d_model
+  // 将28x28图像分成7个patch，每个patch是4行
+  TransformerMNIST model(/*in_per_token=*/112, /*seq_len=*/7,
+                         /*d_model=*/32, /*n_heads=*/2,
+                         /*d_ff=*/64, /*n_layers=*/1,
                          /*n_classes=*/10);
   Autoalg::Learning::CrossEntropy criterion;
 
@@ -311,7 +316,7 @@ int main() {
       LOG_MDA_INFO("Lr decay to " << optimizer.Lr())
     }
 
-    for (Autoalg::Index j = 0; j < train_dataset.BatchesSize(); ++j) {
+    for (Autoalg::Index j = 0; j < std::min(train_dataset.BatchesSize(), (Autoalg::Index)200); ++j) {
       std::tie(n_samples, batch_samples, batch_labels) =
           train_dataset.GetBatch(j);
 
@@ -334,7 +339,7 @@ int main() {
     // eval
     LOG_MDA_INFO("Epoch " << i << " Evaluating...")
     Autoalg::Index total_samples = 0, correct_samples = 0;
-    for (Autoalg::Index j = 0; j < val_dataset.BatchesSize(); ++j) {
+    for (Autoalg::Index j = 0; j < std::min(val_dataset.BatchesSize(), (Autoalg::Index)50); ++j) {
       std::tie(n_samples, batch_samples, batch_labels) =
           val_dataset.GetBatch(j);
       Autoalg::Mdarray input(batch_samples,

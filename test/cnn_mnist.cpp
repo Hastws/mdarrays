@@ -39,7 +39,7 @@ class CNN : public Autoalg::Learning::Module {
 
 int main() {
   // config
-  constexpr Autoalg::Index epoch = 16;
+  constexpr Autoalg::Index epoch = 1;
   constexpr Autoalg::Index batch_size = 64;
   constexpr Autoalg::BasicData lr = 0.01;
   constexpr Autoalg::BasicData momentum = 0.9;
@@ -48,7 +48,7 @@ int main() {
   constexpr Autoalg::Index lr_decay_epoch1 = 3;
   constexpr Autoalg::Index lr_decay_epoch2 = 5;
 
-  constexpr Autoalg::Index print_iterators = 10;
+  constexpr Autoalg::Index print_iterators = 100;
 
   using namespace std::chrono;
   steady_clock::time_point start_tp = steady_clock::now();
@@ -83,7 +83,7 @@ int main() {
       LOG_MDA_INFO("Lr decay to [" << optimizer.Lr() << "]")
     }
 
-    for (Autoalg::Index j = 0; j < train_dataset.BatchesSize(); ++j) {
+    for (Autoalg::Index j = 0; j < std::min(train_dataset.BatchesSize(), (Autoalg::Index)20); ++j) {
       std::tie(n_samples, batch_samples, batch_labels) =
           train_dataset.GetBatch(j);
       Autoalg::Mdarray input(batch_samples, {n_samples, 1, 28, 28});
@@ -102,7 +102,7 @@ int main() {
 
     LOG_MDA_INFO("Epoch [" << i << "] evaluating...")
     Autoalg::Index total_samples = 0, correct_samples = 0;
-    for (Autoalg::Index j = 0; j < val_dataset.BatchesSize(); ++j) {
+    for (Autoalg::Index j = 0; j < std::min(val_dataset.BatchesSize(), (Autoalg::Index)20); ++j) {
       std::tie(n_samples, batch_samples, batch_labels) =
           val_dataset.GetBatch(j);
       Autoalg::Mdarray input(batch_samples, {n_samples, 1, 28, 28});

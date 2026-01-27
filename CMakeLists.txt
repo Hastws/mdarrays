@@ -3,7 +3,16 @@ project(mdarray)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g -Wall -O3")
+
+# OpenMP 支持
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    message(STATUS "OpenMP found, enabling parallel computation")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+else()
+    message(WARNING "OpenMP not found, using single-threaded mode")
+endif()
 
 include_directories(include)
 include_directories(third_party)
@@ -30,6 +39,9 @@ add_executable(transformer_mnist test/transformer_mnist.cpp ${SRC_FILES})
 target_compile_definitions(cnn_cifar_10 PRIVATE PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
 target_link_libraries(multidimensional_arrays_lib memory_pool_lib)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(multidimensional_arrays_lib OpenMP::OpenMP_CXX)
+endif()
 
 target_link_libraries(mdarray multidimensional_arrays_lib memory_pool_lib)
 target_link_libraries(mlp_mnist multidimensional_arrays_lib memory_pool_lib)
