@@ -44,6 +44,27 @@ class FixedArray {
       array_[index] = other.array_[index];
     }
   }
+  
+  // 赋值运算符
+  FixedArray<DataType>& operator=(const FixedArray<DataType>& other) {
+    if (this != &other) {
+      size_ = other.size_;
+      for (Index index = 0; index < other.size_; index++) {
+        array_[index] = other.array_[index];
+      }
+    }
+    return *this;
+  }
+  
+  FixedArray<DataType>& operator=(FixedArray<DataType>&& other) noexcept {
+    if (this != &other) {
+      size_ = other.size_;
+      for (Index index = 0; index < other.size_; index++) {
+        array_[index] = other.array_[index];
+      }
+    }
+    return *this;
+  }
 
   DataType &operator[](Index idx) { return array_[idx]; }
 

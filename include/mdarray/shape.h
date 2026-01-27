@@ -28,6 +28,21 @@ class Shape {
   Shape(const Shape &other) = default;
 
   Shape(Shape &&other) = default;
+  
+  // 赋值运算符
+  Shape& operator=(const Shape& other) {
+    if (this != &other) {
+      dims_ = other.dims_;
+    }
+    return *this;
+  }
+  
+  Shape& operator=(Shape&& other) {
+    if (this != &other) {
+      dims_ = std::move(other.dims_);
+    }
+    return *this;
+  }
 
   ~Shape() = default;
 

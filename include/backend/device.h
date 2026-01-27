@@ -13,31 +13,34 @@ enum class DeviceType {
 
 class Device {
 public:
-    static DeviceType current_device;
-    static int cuda_device_id;
-    
-    static void SetDevice(DeviceType type, int device_id = 0) {
-        current_device = type;
-        cuda_device_id = device_id;
+    static DeviceType& CurrentDevice() {
+        static DeviceType device = DeviceType::CPU;
+        return device;
     }
     
-    static DeviceType GetDevice() { return current_device; }
-    static int GetCudaDeviceId() { return cuda_device_id; }
+    static int& CudaDeviceId() {
+        static int device_id = 0;
+        return device_id;
+    }
     
-    static bool IsCuda() { return current_device == DeviceType::CUDA; }
-    static bool IsCpu() { return current_device == DeviceType::CPU; }
+    static void SetDevice(DeviceType type, int device_id = 0) {
+        CurrentDevice() = type;
+        CudaDeviceId() = device_id;
+    }
+    
+    static DeviceType GetDevice() { return CurrentDevice(); }
+    static int GetCudaDeviceId() { return CudaDeviceId(); }
+    
+    static bool IsCuda() { return CurrentDevice() == DeviceType::CUDA; }
+    static bool IsCpu() { return CurrentDevice() == DeviceType::CPU; }
     
     static std::string DeviceName() {
-        switch (current_device) {
-            case DeviceType::CUDA: return "cuda:" + std::to_string(cuda_device_id);
+        switch (CurrentDevice()) {
+            case DeviceType::CUDA: return "cuda:" + std::to_string(CudaDeviceId());
             default: return "cpu";
         }
     }
 };
-
-// 静态成员初始化
-inline DeviceType Device::current_device = DeviceType::CPU;
-inline int Device::cuda_device_id = 0;
 
 }  // namespace Autoalg
 
