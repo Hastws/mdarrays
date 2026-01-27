@@ -2,6 +2,8 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
+#include <atomic>
 
 // #define OUT_PUT_MEMORY_POOL_LOG
 
@@ -174,15 +176,15 @@ class FirstFitAllocator {
       return nullptr;
     }
     mp->last_chunk_id_ = 0;
-    if (mp_size < max_mp_size) {
-      mp->is_allow_extend_ = 1;
-    }
+    // Bug fix: 初始化 is_allow_extend_
+    mp->is_allow_extend_ = (mp_size < max_mp_size) ? 1 : 0;
     mp->is_thread_safe_ = thread_safe;
     mp->max_mem_pool_size = max_mp_size;
     mp->mem_pool_size = mp_size;
     mp->total_mem_pool_size = mp_size;
     char *s = (char *)malloc(sizeof(Chunk) + sizeof(char) * mp->mem_pool_size);
     if (!s) {
+      free(mp);  // Bug fix: 清理已分配的内存
       return nullptr;
     }
     mp->chunk_list_ = (Chunk *)s;
@@ -375,8 +377,9 @@ class FirstFitAllocator {
   static Chunk *find_memory_list(MemoryPool *mp, void *p) {
     Chunk *tmp = mp->chunk_list_;
     while (tmp) {
+      // Bug fix: 使用 chunk 自身的 mem_pool_size 而不是 mp->mem_pool_size
       if (tmp->start <= (char *)p &&
-          tmp->start + mp->mem_pool_size > (char *)p) {
+          tmp->start + tmp->mem_pool_size > (char *)p) {
         break;
       }
       tmp = tmp->next_chunk_;
@@ -387,21 +390,31 @@ class FirstFitAllocator {
 
   static void MergeFreeChunk(MemoryPool *mp, Chunk *mm, Block *c) {
     Block *p0 = c, *p1 = c;
-    while (p0->is_free_) {
-      p1 = p0;
-      if ((char *)p0 - BLOCK_POINTER_SIZE - BLOCK_SIZE <= mm->start) {
+    
+    // 向前合并：找到连续空闲块的起始位置
+    while (p1->is_free_) {
+      if ((char *)p1 - BLOCK_POINTER_SIZE <= mm->start) {
         break;
       }
-      p0 = *(Block **)((char *)p0 - BLOCK_POINTER_SIZE);
+      Block *prev_block = *(Block **)((char *)p1 - BLOCK_POINTER_SIZE);
+      if (!prev_block->is_free_) {
+        break;
+      }
+      // Bug fix: 从链表中删除被合并的块
+      MP_DLINKLIST_DEL(mm->free_block_list_, p1);
+      prev_block->allow_mem_ += p1->allow_mem_;
+      p1 = prev_block;
     }
 
+    // 向后合并
     p0 = (Block *)((char *)p1 + p1->allow_mem_);
-    while ((char *)p0 < mm->start + mp->mem_pool_size && p0->is_free_) {
+    while ((char *)p0 < mm->start + mm->mem_pool_size && p0->is_free_) {
       MP_DLINKLIST_DEL(mm->free_block_list_, p0);
       p1->allow_mem_ += p0->allow_mem_;
       p0 = (Block *)((char *)p0 + p0->allow_mem_);
     }
 
+    // 更新尾部指针
     *(Block **)((char *)p1 + p1->allow_mem_ - BLOCK_POINTER_SIZE) = p1;
   }
 
@@ -426,23 +439,39 @@ class FirstFitAllocator {
   }
 };
 
-static struct MemoryPool *memory_pool;
-static bool is_memory_pool_inited = false;
+static struct MemoryPool *memory_pool = nullptr;
+static std::once_flag init_flag;  // 线程安全的初始化标志
+static std::mutex pool_mutex;     // 内存池操作锁
+
+static void InitMemoryPoolOnce() {
+  LOG_MP_INFO("Process Init memory pool");
+  memory_pool = FirstFitAllocator::MemoryPoolInit(2048 * MB * 4, 1024 * MB, 1);
+  if (!memory_pool) {
+    LOG_MP_FATAL("Failed to initialize memory pool!");
+  }
+}
 
 void *AllocatorInterface::Allocate(MemorySize n_bytes) {
-  if (!is_memory_pool_inited) {
-    LOG_MP_INFO("Process Init memory pool");
-    memory_pool = FirstFitAllocator::MemoryPoolInit(2048 * MB * 4, 1024 * MB, 0);
-    is_memory_pool_inited = true;
+  // 线程安全的单次初始化
+  std::call_once(init_flag, InitMemoryPoolOnce);
+  
+  if (!memory_pool) {
+    LOG_MP_FATAL("Memory pool not initialized.");
+    return nullptr;
   }
+  
+  std::lock_guard<std::mutex> lock(pool_mutex);
   void *p = FirstFitAllocator::MemoryPoolAlloc(memory_pool, n_bytes);
   if (!p) {
-    LOG_MP_FATAL("Memory return nullptr.")
+    LOG_MP_FATAL("Memory return nullptr for size: " << n_bytes);
   }
   return p;
 }
 
 void AllocatorInterface::Deallocate(void *ptr) {
+  if (!ptr) return;
+  
+  std::lock_guard<std::mutex> lock(pool_mutex);
   FirstFitAllocator::MemoryPoolFree(memory_pool, ptr);
 }
 
