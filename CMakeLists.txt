@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
-project(mdarray)
+project(mdarray LANGUAGES CXX)
+
+# 选项：是否启用 CUDA
+option(USE_CUDA "Enable CUDA support" OFF)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall")
@@ -23,10 +26,26 @@ else()
     message(WARNING "AVX2 not supported, SIMD optimizations disabled")
 endif()
 
+# CUDA 支持
+if(USE_CUDA)
+    find_package(CUDA REQUIRED)
+    message(STATUS "CUDA found: ${CUDA_VERSION}")
+    message(STATUS "CUDA include: ${CUDA_INCLUDE_DIRS}")
+    message(STATUS "CUDA libraries: ${CUDA_LIBRARIES}")
+    add_definitions(-DUSE_CUDA)
+    include_directories(${CUDA_INCLUDE_DIRS})
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -O3 -std=c++11")
+endif()
+
 include_directories(include)
 include_directories(third_party)
 
 FILE(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+
+# CUDA 源文件
+if(USE_CUDA)
+    FILE(GLOB_RECURSE CUDA_SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cu)
+endif()
 
 message(${PROJECT_SOURCE_DIR})
 add_definitions(-DMLP_MNIST_TRAIN_IMAGES="${PROJECT_SOURCE_DIR}/data/mnist/train-images.idx3-ubyte")
@@ -35,15 +54,32 @@ add_definitions(-DMLP_MNIST_TEST_IMAGES="${PROJECT_SOURCE_DIR}/data/mnist/t10k-i
 add_definitions(-DMLP_MNIST_TEST_LABELS="${PROJECT_SOURCE_DIR}/data/mnist/t10k-labels.idx1-ubyte")
 add_definitions(-DCIFAR_10_DATA_FOLDER="${PROJECT_SOURCE_DIR}/data/cifar_10")
 
+# 库
+if(USE_CUDA)
+    cuda_add_library(cuda_kernels_lib STATIC ${CUDA_SRC_FILES})
+    target_link_libraries(cuda_kernels_lib ${CUDA_LIBRARIES})
+endif()
+
 add_library(multidimensional_arrays_lib STATIC ${SRC_FILES})
 add_library(memory_pool_lib STATIC ${PROJECT_SOURCE_DIR}/third_party/memory_pool/allocator.h
         ${PROJECT_SOURCE_DIR}/third_party/memory_pool/allocator.cpp)
 
-add_executable(mdarray test/test_base.cpp ${SRC_FILES})
-add_executable(mlp_mnist test/mlp_mnist.cpp ${SRC_FILES})
-add_executable(cnn_mnist test/cnn_mnist.cpp ${SRC_FILES})
-add_executable(cnn_cifar_10 test/cnn_cifar_10.cpp ${SRC_FILES})
-add_executable(transformer_mnist test/transformer_mnist.cpp ${SRC_FILES})
+# 可执行文件
+if(USE_CUDA)
+    add_executable(mdarray test/test_base.cpp ${SRC_FILES})
+    add_executable(mlp_mnist test/mlp_mnist.cpp ${SRC_FILES})
+    add_executable(cnn_mnist test/cnn_mnist.cpp ${SRC_FILES})
+    add_executable(cnn_cifar_10 test/cnn_cifar_10.cpp ${SRC_FILES})
+    add_executable(transformer_mnist test/transformer_mnist.cpp ${SRC_FILES})
+    add_executable(transformer_mnist_cuda test/transformer_mnist.cpp ${SRC_FILES})
+    target_compile_definitions(transformer_mnist_cuda PRIVATE USE_CUDA)
+else()
+    add_executable(mdarray test/test_base.cpp ${SRC_FILES})
+    add_executable(mlp_mnist test/mlp_mnist.cpp ${SRC_FILES})
+    add_executable(cnn_mnist test/cnn_mnist.cpp ${SRC_FILES})
+    add_executable(cnn_cifar_10 test/cnn_cifar_10.cpp ${SRC_FILES})
+    add_executable(transformer_mnist test/transformer_mnist.cpp ${SRC_FILES})
+endif()
 
 target_compile_definitions(cnn_cifar_10 PRIVATE PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
@@ -51,9 +87,20 @@ target_link_libraries(multidimensional_arrays_lib memory_pool_lib)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(multidimensional_arrays_lib OpenMP::OpenMP_CXX)
 endif()
+if(USE_CUDA)
+    target_link_libraries(multidimensional_arrays_lib cuda_kernels_lib ${CUDA_LIBRARIES})
+endif()
 
 target_link_libraries(mdarray multidimensional_arrays_lib memory_pool_lib)
 target_link_libraries(mlp_mnist multidimensional_arrays_lib memory_pool_lib)
 target_link_libraries(cnn_mnist multidimensional_arrays_lib memory_pool_lib)
 target_link_libraries(cnn_cifar_10 multidimensional_arrays_lib memory_pool_lib)
 target_link_libraries(transformer_mnist multidimensional_arrays_lib memory_pool_lib)
+if(USE_CUDA)
+    target_link_libraries(transformer_mnist_cuda multidimensional_arrays_lib memory_pool_lib cuda_kernels_lib ${CUDA_LIBRARIES})
+    
+    # CUDA 测试程序
+    add_executable(test_cuda test/test_cuda.cpp)
+    target_compile_definitions(test_cuda PRIVATE USE_CUDA)
+    target_link_libraries(test_cuda multidimensional_arrays_lib memory_pool_lib cuda_kernels_lib ${CUDA_LIBRARIES})
+endif()
