@@ -7,6 +7,7 @@
 #include "memory_pool/allocator.h"
 #include "utils/base_config.h"
 #include "utils/log.h"
+#include "backend/simd_kernel.h"
 
 namespace Autoalg {
 
@@ -15,21 +16,25 @@ class StorageUniversalAgent;
 class Storage {
  public:
   explicit Storage(Index size)
-      : base_ptr_(Allocator::SharedAllocate<VersionData>(
-            size * sizeof(BasicData) + sizeof(Index))),
+      : size_(size),
+        base_ptr_(Allocator::SharedAllocate<VersionData>(
+            size * sizeof(BasicData) + sizeof(Index) + sizeof(Index))),
         data_ptr_(base_ptr_->data_) {
     base_ptr_->version_ = 0;
+    base_ptr_->size_ = size;
   }
 
   Storage(const Storage &other, Index offset)
-      : base_ptr_(other.base_ptr_), data_ptr_(other.data_ptr_ + offset) {}
+      : size_(other.size_ - offset),
+        base_ptr_(other.base_ptr_), 
+        data_ptr_(other.data_ptr_ + offset) {}
 
   Storage(Index size, BasicData value) : Storage(size) {
-    std::fill_n(data_ptr_, size, value);
+    SIMD::fill_const(data_ptr_, value, size);
   }
 
   Storage(const BasicData *data, Index size) : Storage(size) {
-    std::memcpy(data_ptr_, data, size * sizeof(BasicData));
+    SIMD::copy(data_ptr_, data, size);
   }
 
   Storage(const Storage &other) = default;
@@ -44,6 +49,11 @@ class Storage {
   Index Offset() const { return data_ptr_ - base_ptr_->data_; }
   Index Version() const { return base_ptr_->version_; }
   void IncrementVersion() const { ++base_ptr_->version_; }
+  
+  // 批量操作接口
+  BasicData* Data() { return data_ptr_; }
+  const BasicData* Data() const { return data_ptr_; }
+  Index Size() const { return size_; }
 
   // friend function
   friend class StorageUniversalAgent;
@@ -51,9 +61,11 @@ class Storage {
  private:
   struct VersionData {
     Index version_;
+    Index size_;
     BasicData data_[1];
   };
 
+  Index size_;
   std::shared_ptr<VersionData> base_ptr_;  // base pointer
   BasicData *data_ptr_;                    // SourceData pointer
 };

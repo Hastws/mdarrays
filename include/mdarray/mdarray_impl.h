@@ -8,6 +8,7 @@
 #include <omp.h>
 #endif
 
+#include "backend/simd_kernel.h"
 #include "exp/exp.h"
 #include "exp/exp_impl.h"
 #include "exp/operator/basic_op.h"
@@ -419,6 +420,68 @@ struct AutoGradMeta {
     grad_fn_ptr_ = ptr;
   }
 };
+
+// 特化: MdarrayImpl 直接拷贝，使用 SIMD
+inline void Assign(Storage &dist_storage, const Shape &dist_shape,
+                   const IndexArray &dist_stride, const MdarrayImpl &src_exp) {
+  const Index space_size = dist_shape.SpaceSize();
+  
+  // 如果源和目标都是连续的，使用 SIMD 快速拷贝
+  if (src_exp.IsContiguous()) {
+    SIMD::copy(dist_storage.Data(), src_exp.GetStorage().Data() + src_exp.Offset(), space_size);
+    return;
+  }
+  
+  // 否则回退到逐元素拷贝
+  const Index dim_size = dist_shape.DimensionsSize();
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static) if(space_size > 1000)
+#endif
+  for (Index i = 0; i < space_size; ++i) {
+    IndexArray indexes(dim_size);
+    for (Index ii = i, j = 0; j < dim_size; ++j) {
+      if (dist_stride[j] != 0) {
+        indexes[j] = ii / dist_stride[j];
+        ii %= dist_stride[j];
+      } else {
+        indexes[j] = 0;
+      }
+    }
+    dist_storage[i] = src_exp.Eval(indexes);
+  }
+}
+
+// 特化: MdarrayImpl 原地加法，使用 SIMD
+inline void InplacementAdd(Storage &dist_storage, const Shape &dist_shape,
+                           const IndexArray &dist_stride, const MdarrayImpl &src_exp) {
+  const Index space_size = dist_shape.SpaceSize();
+  
+  // 如果源和目标都是连续的，使用 SIMD
+  if (src_exp.IsContiguous()) {
+    SIMD::add_inplace(dist_storage.Data(), 
+                      src_exp.GetStorage().Data() + src_exp.Offset(), 
+                      space_size);
+    return;
+  }
+  
+  // 否则回退到逐元素加法
+  const Index dim_size = dist_shape.DimensionsSize();
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static) if(space_size > 1000)
+#endif
+  for (Index i = 0; i < space_size; ++i) {
+    IndexArray indexes(dim_size);
+    for (Index ii = i, j = 0; j < dim_size; ++j) {
+      if (dist_stride[j] != 0) {
+        indexes[j] = ii / dist_stride[j];
+        ii %= dist_stride[j];
+      } else {
+        indexes[j] = 0;
+      }
+    }
+    dist_storage[i] += src_exp.Eval(indexes);
+  }
+}
 
 template <typename ImplType>
 void Assign(Storage &dist_storage, const Shape &dist_shape,

@@ -3,7 +3,7 @@ project(mdarray)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g -Wall -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g -Wall -O3 -march=native")
 
 # OpenMP 支持
 find_package(OpenMP)
@@ -12,6 +12,15 @@ if(OpenMP_CXX_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 else()
     message(WARNING "OpenMP not found, using single-threaded mode")
+endif()
+
+# 检测 SIMD 支持
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_AVX2)
+if(COMPILER_SUPPORTS_AVX2)
+    message(STATUS "AVX2 supported, enabling SIMD optimizations")
+else()
+    message(WARNING "AVX2 not supported, SIMD optimizations disabled")
 endif()
 
 include_directories(include)
