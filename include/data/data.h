@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "utils/base_config.h"
+#include "data/data_downloader.h"
 
 namespace Autoalg {
 namespace SourceData {
@@ -29,8 +30,13 @@ class MNIST : public DatasetBase {
     BasicData pixels_data_[pixels_size_];
   };
 
+  // 原有构造函数
   MNIST(const std::string &img_path, const std::string &label_path,
         Index batch_size);
+  
+  // 便捷构造函数 - 自动下载数据
+  static MNIST CreateTrainDataset(Index batch_size);
+  static MNIST CreateTestDataset(Index batch_size);
 
   Index SamplesSize() const override { return samples_size_.size(); }
   Index BatchesSize() const override { return batches_size_; }
@@ -66,6 +72,11 @@ class Cifar10 : public DatasetBase {
   };
 
   Cifar10(const std::string &dataset_dir, bool train, Index batch_size);
+  
+  // 便捷构造函数 - 自动下载数据
+  static Cifar10 CreateTrainDataset(Index batch_size);
+  static Cifar10 CreateTestDataset(Index batch_size);
+  
   Index SamplesSize() const override { return samples_size_.size(); }
   Index BatchesSize() const override { return batches_size_; }
 

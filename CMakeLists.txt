@@ -48,11 +48,7 @@ if(USE_CUDA)
 endif()
 
 message(${PROJECT_SOURCE_DIR})
-add_definitions(-DMLP_MNIST_TRAIN_IMAGES="${PROJECT_SOURCE_DIR}/data/mnist/train-images.idx3-ubyte")
-add_definitions(-DMLP_MNIST_TRAIN_LABELS="${PROJECT_SOURCE_DIR}/data/mnist/train-labels.idx1-ubyte")
-add_definitions(-DMLP_MNIST_TEST_IMAGES="${PROJECT_SOURCE_DIR}/data/mnist/t10k-images.idx3-ubyte")
-add_definitions(-DMLP_MNIST_TEST_LABELS="${PROJECT_SOURCE_DIR}/data/mnist/t10k-labels.idx1-ubyte")
-add_definitions(-DCIFAR_10_DATA_FOLDER="${PROJECT_SOURCE_DIR}/data/cifar_10")
+# 数据路径不再硬编码，使用运行时自动检测/下载
 
 # 库
 if(USE_CUDA)
@@ -81,8 +77,6 @@ else()
     add_executable(cnn_cifar_10 test/cnn_cifar_10.cpp ${SRC_FILES})
     add_executable(transformer_mnist test/transformer_mnist.cpp ${SRC_FILES})
 endif()
-
-target_compile_definitions(cnn_cifar_10 PRIVATE PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
 target_link_libraries(multidimensional_arrays_lib memory_pool_lib)
 if(OpenMP_CXX_FOUND)

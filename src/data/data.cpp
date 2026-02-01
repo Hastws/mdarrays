@@ -8,6 +8,7 @@
 #include <tuple>
 #include <vector>
 
+#include "data/data_downloader.h"
 #include "memory_pool/allocator.h"
 #include "utils/exception.h"
 
@@ -113,6 +114,25 @@ void MNIST::ReadMnistLabels(const std::string &path) {
     labels_.push_back(label);
   }
 }
+
+MNIST MNIST::CreateTrainDataset(Index batch_size) {
+  std::string img_path = DataDownloader::GetMNISTTrainImages();
+  std::string label_path = DataDownloader::GetMNISTTrainLabels();
+  if (img_path.empty() || label_path.empty()) {
+    THROW_ERROR("Failed to get MNIST training data. Please check network connection.");
+  }
+  return MNIST(img_path, label_path, batch_size);
+}
+
+MNIST MNIST::CreateTestDataset(Index batch_size) {
+  std::string img_path = DataDownloader::GetMNISTTestImages();
+  std::string label_path = DataDownloader::GetMNISTTestLabels();
+  if (img_path.empty() || label_path.empty()) {
+    THROW_ERROR("Failed to get MNIST test data. Please check network connection.");
+  }
+  return MNIST(img_path, label_path, batch_size);
+}
+
 }  // namespace SourceData
 }  // namespace Autoalg
 
@@ -192,5 +212,22 @@ void Cifar10::ReadBin(const std::string &bin_path) {
     for (Index i = 0; i < Img::pixels_size_; ++i) dist[i] = src[i] / 255.0;
   }
 }
+
+Cifar10 Cifar10::CreateTrainDataset(Index batch_size) {
+  std::string cifar_dir = DataDownloader::GetCifar10Dir();
+  if (cifar_dir.empty()) {
+    THROW_ERROR("Failed to get CIFAR-10 data. Please check network connection.");
+  }
+  return Cifar10(cifar_dir, true, batch_size);
+}
+
+Cifar10 Cifar10::CreateTestDataset(Index batch_size) {
+  std::string cifar_dir = DataDownloader::GetCifar10Dir();
+  if (cifar_dir.empty()) {
+    THROW_ERROR("Failed to get CIFAR-10 data. Please check network connection.");
+  }
+  return Cifar10(cifar_dir, false, batch_size);
+}
+
 }  // namespace SourceData
 }  // namespace Autoalg

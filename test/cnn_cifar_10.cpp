@@ -64,11 +64,11 @@ int main() {
   using namespace std::chrono;
   steady_clock::time_point start_tp = steady_clock::now();
 
-  // dataset
-  Autoalg::SourceData::Cifar10 train_dataset(std::string(CIFAR_10_DATA_FOLDER), true,
-                                        batch_size);
-  Autoalg::SourceData::Cifar10 val_dataset(std::string(CIFAR_10_DATA_FOLDER), false,
-                                      batch_size);
+  // dataset - 自动下载数据
+  Autoalg::SourceData::Cifar10 train_dataset = 
+      Autoalg::SourceData::Cifar10::CreateTrainDataset(batch_size);
+  Autoalg::SourceData::Cifar10 val_dataset = 
+      Autoalg::SourceData::Cifar10::CreateTestDataset(batch_size);
   LOG_MDA_INFO("train dataset length:[" << train_dataset.SamplesSize() << "]")
   LOG_MDA_INFO("valid dataset length:[" << val_dataset.SamplesSize() << "]")
 

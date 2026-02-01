@@ -35,6 +35,50 @@
 
 ---
 
+## 📦 数据集
+
+项目支持 **MNIST** 和 **CIFAR-10** 数据集，具有自动下载功能。
+
+### 自动下载
+
+首次运行训练程序时，如果数据不存在，系统会自动从网络下载：
+
+```cpp
+// 使用便捷的静态工厂方法，自动下载数据
+Autoalg::SourceData::MNIST train_dataset = 
+    Autoalg::SourceData::MNIST::CreateTrainDataset(batch_size);
+Autoalg::SourceData::MNIST test_dataset = 
+    Autoalg::SourceData::MNIST::CreateTestDataset(batch_size);
+
+Autoalg::SourceData::Cifar10 train_dataset = 
+    Autoalg::SourceData::Cifar10::CreateTrainDataset(batch_size);
+```
+
+### 数据存储位置
+
+数据默认存储在可执行文件所在目录的 `../data/` 目录下。你也可以通过以下方式自定义：
+
+1. **环境变量**：设置 `MDARRAYS_DATA_DIR` 环境变量
+   ```bash
+   export MDARRAYS_DATA_DIR=/path/to/your/data
+   ```
+
+2. **代码中设置**：
+   ```cpp
+   Autoalg::SourceData::DataDownloader::SetDataRoot("/path/to/your/data");
+   ```
+
+### 手动下载
+
+如果自动下载失败，你可以手动下载数据集：
+
+- **MNIST**: https://ossci-datasets.s3.amazonaws.com/mnist/
+- **CIFAR-10**: https://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz
+
+将数据放到 `data/mnist/` 和 `data/cifar_10/` 目录下。
+
+---
+
 ## 🧪 自测说明
 `main()` 中调用 `TestLazyEvaluation()`，其内部顺序执行以下用例（全部通过即认为组件可用）：
 - `TestMdarray / TestBasicOperator / TestMatrixOperator / TestNumericOperator / TestConvOperator`

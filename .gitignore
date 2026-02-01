@@ -39,3 +39,9 @@ cmake-build-release
 cmake-build-minsizerel
 cmake-build-relwithdebinfo
 build
+
+# Data files (downloaded at runtime)
+data/mnist/*.idx*-ubyte
+data/mnist/*.gz
+data/cifar_10/*.bin
+data/cifar_10/*.tar.gz

@@ -280,13 +280,11 @@ int main() {
   using namespace std::chrono;
   steady_clock::time_point start_tp = steady_clock::now();
 
-  // dataset
-  Autoalg::SourceData::MNIST train_dataset(std::string(MLP_MNIST_TRAIN_IMAGES),
-                                      std::string(MLP_MNIST_TRAIN_LABELS),
-                                      batch_size);
-  Autoalg::SourceData::MNIST val_dataset(std::string(MLP_MNIST_TEST_IMAGES),
-                                    std::string(MLP_MNIST_TEST_LABELS),
-                                    batch_size);
+  // dataset - 自动下载数据
+  Autoalg::SourceData::MNIST train_dataset = 
+      Autoalg::SourceData::MNIST::CreateTrainDataset(batch_size);
+  Autoalg::SourceData::MNIST val_dataset = 
+      Autoalg::SourceData::MNIST::CreateTestDataset(batch_size);
 
   // model & criterion
   // 优化: 7 tokens (每个token 4行=112维), 更小的d_model

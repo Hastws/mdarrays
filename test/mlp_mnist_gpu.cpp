@@ -39,13 +39,11 @@ int main() {
     const Index num_epochs = 3;
     const BasicData learning_rate = 0.01;
     
-    // 数据集
-    SourceData::MNIST train_dataset(std::string(MLP_MNIST_TRAIN_IMAGES),
-                                    std::string(MLP_MNIST_TRAIN_LABELS),
-                                    batch_size);
-    SourceData::MNIST test_dataset(std::string(MLP_MNIST_TEST_IMAGES),
-                                   std::string(MLP_MNIST_TEST_LABELS),
-                                   batch_size);
+    // 数据集 - 自动下载数据
+    SourceData::MNIST train_dataset = 
+        SourceData::MNIST::CreateTrainDataset(batch_size);
+    SourceData::MNIST test_dataset = 
+        SourceData::MNIST::CreateTestDataset(batch_size);
     
     // 构建模型
     std::cout << "Building model..." << std::endl;
