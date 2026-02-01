@@ -58,6 +58,65 @@ class StochasticGradientDescentWithMomentum : public OptimizerBase {
   bool first_step_;
   std::vector<Allocator::UniquePtr<BasicData>> running_means_;
 };
+
+// Adam 优化器
+class Adam : public OptimizerBase {
+ public:
+  Adam(const ParamsDict &params_dict, BasicData lr = 0.001,
+       BasicData beta1 = 0.9, BasicData beta2 = 0.999, BasicData eps = 1e-8);
+  
+  void Step() override;
+  
+  BasicData Lr() const { return lr_; }
+  void SetLr(BasicData lr) { lr_ = lr; }
+
+ private:
+  BasicData lr_;
+  BasicData beta1_;
+  BasicData beta2_;
+  BasicData eps_;
+  Index t_;  // timestep
+  std::vector<Allocator::UniquePtr<BasicData>> m_;  // first moment
+  std::vector<Allocator::UniquePtr<BasicData>> v_;  // second moment
+};
+
+// 学习率调度器基类
+class LrSchedulerBase {
+ public:
+  virtual ~LrSchedulerBase() = default;
+  virtual BasicData GetLr(Index step) = 0;
+};
+
+// Warmup + 线性衰减调度器
+class WarmupLinearScheduler : public LrSchedulerBase {
+ public:
+  WarmupLinearScheduler(BasicData base_lr, Index warmup_steps, 
+                        Index total_steps, BasicData min_lr = 0.0);
+  
+  BasicData GetLr(Index step) override;
+
+ private:
+  BasicData base_lr_;
+  Index warmup_steps_;
+  Index total_steps_;
+  BasicData min_lr_;
+};
+
+// Warmup + 余弦退火调度器
+class WarmupCosineScheduler : public LrSchedulerBase {
+ public:
+  WarmupCosineScheduler(BasicData base_lr, Index warmup_steps, 
+                        Index total_steps, BasicData min_lr = 0.0);
+  
+  BasicData GetLr(Index step) override;
+
+ private:
+  BasicData base_lr_;
+  Index warmup_steps_;
+  Index total_steps_;
+  BasicData min_lr_;
+};
+
 }  // namespace Learning
 }  // namespace Autoalg
 #endif

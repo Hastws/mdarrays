@@ -277,8 +277,10 @@ class FirstFitAllocator {
     }
     if (mp->is_allow_extend_) {
       if (mp->total_mem_pool_size >= mp->max_mem_pool_size) {
-        std::cerr << "Total memory size has great max memory limit."
-                  << std::endl;
+        std::cerr << "Total memory size has reached max memory limit: "
+                  << mp->total_mem_pool_size / (1024*1024) << "MB / "
+                  << mp->max_mem_pool_size / (1024*1024) << "MB" << std::endl;
+        return nullptr;  // 返回 nullptr 而不是继续
       }
       MemorySize add_mem_sz = mp->mem_pool_size;
       if (!ExtendChunkList(mp, add_mem_sz)) {
@@ -445,7 +447,8 @@ static std::mutex pool_mutex;     // 内存池操作锁
 
 static void InitMemoryPoolOnce() {
   LOG_MP_INFO("Process Init memory pool");
-  memory_pool = FirstFitAllocator::MemoryPoolInit(2048 * MB * 4, 1024 * MB, 1);
+  // 增大内存池: 最大16GB, 初始2GB
+  memory_pool = FirstFitAllocator::MemoryPoolInit(2048ULL * MB * 8, 2048ULL * MB, 1);
   if (!memory_pool) {
     LOG_MP_FATAL("Failed to initialize memory pool!");
   }

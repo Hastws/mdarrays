@@ -134,6 +134,47 @@ class CrossEntropy {
   Mdarray Forward(const Mdarray &input, const Index *labels);
 };
 
+// LayerNorm: 对最后一维进行归一化
+class LayerNorm : public Module {
+ public:
+  explicit LayerNorm(Index normalized_shape, BasicData eps = 1e-5);
+
+  LayerNorm(const LayerNorm &other) = delete;
+
+  ~LayerNorm() override = default;
+
+  Mdarray Forward(const Mdarray &input) override;
+
+  ParamsDict Parameters() override;
+
+ private:
+  Index normalized_shape_;
+  BasicData eps_;
+  Mdarray gamma_;  // scale
+  Mdarray beta_;   // shift
+};
+
+// Dropout: 训练时随机置零
+class Dropout : public Module {
+ public:
+  explicit Dropout(BasicData p = 0.1);
+
+  ~Dropout() override = default;
+
+  Mdarray Forward(const Mdarray &input) override;
+
+  ParamsDict Parameters() override { return {}; }
+
+  void SetTraining(bool training) { training_ = training; }
+  bool IsTraining() const { return training_; }
+  void Train() { training_ = true; }
+  void Eval() { training_ = false; }
+
+ private:
+  BasicData p_;  // dropout probability
+  bool training_ = true;
+};
+
 }  // namespace Learning
 }  // namespace Autoalg
 #endif
