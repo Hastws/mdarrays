@@ -41,7 +41,8 @@ cmake-build-relwithdebinfo
 build
 
 # Data files (downloaded at runtime)
-data/mnist/*.idx*-ubyte
-data/mnist/*.gz
-data/cifar_10/*.bin
-data/cifar_10/*.tar.gz
+# Ignore all data files but keep directory structure via .gitkeep
+data/mnist/*
+data/cifar_10/*
+!data/mnist/.gitkeep
+!data/cifar_10/.gitkeep
